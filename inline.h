@@ -679,11 +679,7 @@ S_variant_under_utf8_count(const U8* const s, const U8* const e)
 
     /* Process per-byte */
     while (x < e) {
-	if (! UTF8_IS_INVARIANT(*x)) {
-            count++;
-        }
-
-        x++;
+        count += ! UTF8_IS_INVARIANT(*x++);
     }
 
     return count;

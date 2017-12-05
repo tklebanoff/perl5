@@ -12012,8 +12012,7 @@ Perl_sv_vcatpvfn_flags(pTHX_ SV *const sv, const char *const pat, const STRLEN p
                 STRLEN need = SvCUR(sv) + (q - fmtstart) + 1;
 
                 for (p = fmtstart; p < q; p++)
-                    if (!NATIVE_BYTE_IS_INVARIANT(*p))
-                        need++;
+                    need += ! NATIVE_BYTE_IS_INVARIANT(*p);
                 SvGROW(sv, need);
 
                 dst = SvEND(sv);

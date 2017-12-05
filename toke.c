@@ -3100,8 +3100,8 @@ S_scan_const(pTHX_ char *start)
                  * get it out of the way now.) */
                 if (UNLIKELY(range_max == range_min)) {
                     d = max_ptr;
-                    if (! has_utf8 && ! UVCHR_IS_INVARIANT(range_max)) {
-                        utf8_variant_count--;
+                    if (! has_utf8) {
+                        utf8_variant_count -= ! UVCHR_IS_INVARIANT(range_max);
                     }
                     goto range_done;
                 }
@@ -3332,9 +3332,7 @@ S_scan_const(pTHX_ char *start)
 #ifdef EBCDIC
                             /* In this case on EBCDIC, we haven't calculated
                              * the variants.  Do it here, as we go along */
-                            if (! UVCHR_IS_INVARIANT(i)) {
-                                utf8_variant_count++;
-                            }
+                            utf8_variant_count += ! UVCHR_IS_INVARIANT(i);
 #endif
                             *d++ = (char)i;
                         }
