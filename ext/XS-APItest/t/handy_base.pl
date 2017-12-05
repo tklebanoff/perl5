@@ -338,7 +338,6 @@ foreach my $name (sort keys %properties, 'octal') {
                         next if      $expect_error
                                 && ! try_malforming($u, $function,
                                                     $suffix =~ /LC/);
-
                         my $display_call = "is${function}$suffix( $display_name"
                                          . ", $utf8_param )$display_locale";
                         $ret = truth eval "test_is${function}$suffix('$char',"
@@ -570,7 +569,9 @@ foreach my $name (sort keys %to_properties) {
             next if $expect_error && $u < ((ord "A" == 65) ? 128 : 160);
 
             my $display_call = "to${function}_utf8($display_name, $utf8_param )";
-            $ret = eval   "test_to${function}_utf8('$char', $utf8_param_code)";
+            my $code = "test_to${function}_utf8('$char', $utf8_param_code)";
+            $ret = eval   $code;
+            my $err = $@;
             if ($expect_error) {
                 isnt ($@, "", "expected and got error in $display_call");
                 like($@, qr/Malformed UTF-8 character/,
@@ -612,6 +613,16 @@ foreach my $name (sort keys %to_properties) {
                     $warnings_ok or diag("@warnings");
                     undef @warnings;
                 }
+            }
+            else {
+                warn "XXX unexpected eval fail:\n";
+                use Devel::Peek;
+                Dump $function;
+                Dump $char;
+                Dump $utf8_param_code;
+                Dump $code;
+                Dump $ret;
+                Dump $err;
             }
         }
     }
