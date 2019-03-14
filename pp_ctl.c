@@ -550,7 +550,7 @@ PP(pp_formline)
 	    source = (U8 *)f;
 	    f += to_copy;
 	    trans = '~';
-	    item_is_utf8 = targ_is_utf8 ? !!DO_UTF8(formsv) : !!SvUTF8(formsv);
+	    item_is_utf8 = cBOOL(DO_UTF8(formsv));
 	    goto append;
 
 	case FF_SKIP: /* skip <arg> chars in format */
