@@ -6113,7 +6113,7 @@ S_regmatch(pTHX_ regmatch_info *reginfo, char *startpos, regnode *prog)
 
 		    while (chars) {
 			if (utf8_target) {
-			    uvc = utf8n_to_uvchr((U8*)uc, UTF8_MAXLEN, &len,
+			    uvc = utf8n_to_uvchr((U8*)uc, UTF8_MAXBYTES, &len,
 						    uniflags);
 			    uc += len;
 			}
