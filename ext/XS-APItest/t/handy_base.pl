@@ -5,8 +5,13 @@ BEGIN {
                               # find_utf8_ctype_locale()
 }
 
+$|=1;
 use strict;
-use Test::More;
+use Test::More tests => (($::TEST_CHUNK == 0)
+                        ? 124291
+                        : ($::TEST_CHUNK == 1)
+                          ? 103224
+                          : 1);
 use Config;
 
 use XS::APItest;
@@ -167,12 +172,13 @@ my %utf8_param_code = (
                       );
 
 # This test is split into this number of files.
-my $num_test_files = $ENV{TEST_JOBS} || 1;
+my $num_test_files = 2;
 $::TEST_CHUNK = 0 if $num_test_files == 1 && ! defined $::TEST_CHUNK;
 $num_test_files = 10 if $num_test_files > 10;
 
 my $property_count = -1;
 foreach my $name (sort keys %properties, 'octal') {
+    diag __FILE__ . ": " . __LINE__ . ": property=$name";
 
     # We test every nth property in this run so that this test is split into
     # smaller chunks to minimize test suite elapsed time when run in parallel.
@@ -222,7 +228,9 @@ foreach my $name (sort keys %properties, 'octal') {
     push @code_points, 0x110000;    # Above Unicode, no prop should match
     no warnings 'non_unicode';
 
+    diag __FILE__ . ": " . __LINE__ . ": Calculated code points to test";
     for my $n (@code_points) {
+        diag __FILE__ . ": " . __LINE__ . ": testing code point $n";
         my $u = utf8::native_to_unicode($n);
         my $function = uc($name);
 
@@ -247,6 +255,7 @@ foreach my $name (sort keys %properties, 'octal') {
                             "_LC_uvchr", "_utf8", "_LC_utf8")
         {
 
+            diag __FILE__ . ": " . __LINE__ . ": testing suffix $suffix";
             # Not all possible macros have been defined
             if ($name eq 'vertws') {
 
@@ -276,6 +285,7 @@ foreach my $name (sort keys %properties, 'octal') {
                 my ($display_locale, $locale_is_utf8)
                                 = get_display_locale_or_skip($locale, $suffix);
                 next unless defined $display_locale;
+                diag __FILE__ . ": " . __LINE__ . ": testing locale $display_locale";
 
                 use if $locale, "locale";
                 POSIX::setlocale( &POSIX::LC_ALL, $locale) if $locale;
@@ -404,6 +414,7 @@ my %to_properties = (
 $property_count = -1;
 foreach my $name (sort keys %to_properties) {
 
+    diag __FILE__ . ": " . __LINE__ . ": property=$name";
     $property_count++;
     next if $property_count % $num_test_files != $::TEST_CHUNK;
 
@@ -447,6 +458,7 @@ foreach my $name (sort keys %to_properties) {
     # And finally one non-Unicode code point.
     push @code_points, 0x110000;    # Above Unicode, no prop should match
     no warnings 'non_unicode';
+    diag __FILE__ . ": " . __LINE__ . ": Calculated code points to test";
 
     # $n is native; $u unicode.
     for my $n (@code_points) {
@@ -460,6 +472,7 @@ foreach my $name (sort keys %to_properties) {
         my $display_name = sprintf "\\N{U+%02X, %s}", $n, $char_name;
 
         foreach my $suffix ("", "_L1", "_LC") {
+            diag __FILE__ . ": " . __LINE__ . ": testing suffix $suffix";
 
             # This is the only macro defined for L1
             next if $suffix eq "_L1" && $function ne "LOWER";
@@ -473,6 +486,7 @@ foreach my $name (sort keys %to_properties) {
                 my ($display_locale, $locale_is_utf8)
                                 = get_display_locale_or_skip($locale, $suffix);
                 next unless defined $display_locale;
+                diag __FILE__ . ": " . __LINE__ . ": testing locale $display_locale";
 
                 skip("to${name}_LC does not work for LATIN SMALL LETTER SHARP S"
                   . "$display_locale", 1)
@@ -570,6 +584,7 @@ foreach my $name (sort keys %to_properties) {
             next if $expect_error && $u < ((ord "A" == 65) ? 128 : 160);
 
             my $display_call = "to${function}_utf8($display_name, $utf8_param )";
+            diag __FILE__ . ": " . __LINE__ . ": testing $display_call";
             $ret = eval   "test_to${function}_utf8('$char', $utf8_param_code)";
             if ($expect_error) {
                 isnt ($@, "", "expected and got error in $display_call");
@@ -621,4 +636,4 @@ foreach my $name (sort keys %to_properties) {
 is(scalar @warnings, 0, "No unexpected warnings were generated in the tests")
   or diag @warnings;
 
-done_testing;
+#done_testing;
