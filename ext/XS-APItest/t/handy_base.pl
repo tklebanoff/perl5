@@ -179,6 +179,7 @@ $num_test_files = 10 if $num_test_files > 10;
 my $property_count = -1;
 foreach my $name (sort keys %properties, 'octal') {
     diag __FILE__ . ": " . __LINE__ . ": property=$name";
+    next if $property eq 'lower';
 
     # We test every nth property in this run so that this test is split into
     # smaller chunks to minimize test suite elapsed time when run in parallel.
