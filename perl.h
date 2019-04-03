@@ -706,6 +706,10 @@
 #  define MB_CUR_MAX 1uL
 #endif
 
+#  ifdef I_WCHAR
+#    include <wchar.h>
+#  endif
+
 # include <stdarg.h>
 
 #ifdef I_STDINT
