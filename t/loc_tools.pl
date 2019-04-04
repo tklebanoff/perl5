@@ -2,6 +2,7 @@
 # system.  Caller should have verified that this isn't miniperl before calling
 # the functions.
 
+$|=1;
 # Note that it's okay that some languages have their native names
 # capitalized here even though that's not "right".  They are lowercased
 # anyway later during the scanning process (and besides, some clueless
