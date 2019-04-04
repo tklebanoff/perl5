@@ -344,7 +344,7 @@ sub find_locales ($;$) {
     # will return success on any garbage or non-garbage name.
     return sort @Locale if defined $Config{d_setlocale_accepts_any_locale_name};
 
-    foreach (1..16) {
+    foreach (1..15) {
         _trylocale("ISO8859-$_", $categories, \@Locale, $allow_incompatible);
         _trylocale("iso8859$_", $categories, \@Locale, $allow_incompatible);
         _trylocale("iso8859-$_", $categories, \@Locale, $allow_incompatible);
