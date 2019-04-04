@@ -22996,6 +22996,7 @@ Perl_parse_uniprop_string(pTHX_
 
     if (could_be_user_defined) {
         CV* user_sub;
+        const char tainted[] = "Insecure user-defined property";
 
         /* Here, the name could be for a user defined property, which are
          * implemented as subs. */
@@ -23024,9 +23025,9 @@ Perl_parse_uniprop_string(pTHX_
 
             /* We refuse to call a tainted subroutine; returning an error
              * instead */
-            if (TAINT_get) {
+            if (UNLIKELY(TAINT_get)) {
                 if (SvCUR(msg) > 0) sv_catpvs(msg, "; ");
-                sv_catpvs(msg, "Insecure user-defined property");
+                sv_catpv(msg, tainted);
                 goto append_name_to_msg;
             }
 
@@ -23212,6 +23213,16 @@ Perl_parse_uniprop_string(pTHX_
                 prop_definition = NULL;
             }
             else {  /* G_SCALAR guarantees a single return value */
+                SV * contents = POPs;
+
+                if (UNLIKELY(SvTAINTED(contents))) {
+                    if (SvCUR(msg) > 0) sv_catpvs(msg, "; ");
+                    sv_catpv(msg, tainted);
+                    USER_PROP_MUTEX_LOCK;
+                    S_delete_recursion_entry(aTHX_ SvPVX(fq_name));
+                    USER_PROP_MUTEX_UNLOCK;
+                    goto append_name_to_msg;
+                }
 
                 /* The contents is supposed to be the expansion of the property
                  * definition.  Call a function to check for valid syntax and
@@ -23219,7 +23230,7 @@ Perl_parse_uniprop_string(pTHX_
                 prop_definition = handle_user_defined_property(name, name_len,
                                                     is_utf8, to_fold, runtime,
                                                     deferrable,
-                                                    POPs, user_defined_ptr,
+                                                    contents, user_defined_ptr,
                                                     msg,
                                                     level);
             }

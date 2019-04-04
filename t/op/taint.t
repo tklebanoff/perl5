@@ -2399,6 +2399,15 @@ EOF
 }
 
 {
+    sub IsTaint { $TAINT . sprintf "%02x", ord("A") }
+
+    my $prop = "IsTaint";
+    eval { "A" =~ /\p{$prop}/};
+    like($@, qr/Insecure user-defined property "IsTaint" in regex/,
+	    "user-defined property returning a tainted value");
+}
+
+{
     # [perl #87336] lc/uc(first) failing to taint the returned string
     my $source = "foo$TAINT";
     my $dest = lc $source;
