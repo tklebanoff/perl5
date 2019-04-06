@@ -2903,7 +2903,8 @@ S_uiv_2buf(char *const buf, const IV iv, UV uv, const int is_uv, char **const pe
 	uv = iv;
 	sign = 0;
     } else {
-        uv = -(UV)iv;
+        /* Using 0- here to silence bogus warning from MS VC */
+        uv = (UV) (0 - (UV) iv);
 	sign = 1;
     }
 
@@ -12616,7 +12617,7 @@ Perl_sv_vcatpvfn_flags(pTHX_ SV *const sv, const char *const pat, const STRLEN p
                         case 't':  iv = va_arg(*args, ptrdiff_t);  break;
 #endif
                         default:   iv = va_arg(*args, int);        break;
-                        case 'j':  iv = va_arg(*args, PERL_INTMAX_T); break;
+                        case 'j':  iv = (IV) va_arg(*args, PERL_INTMAX_T); break;
                         case 'q':
 #if IVSIZE >= 8
                                    iv = va_arg(*args, Quad_t);     break;
@@ -12651,7 +12652,8 @@ Perl_sv_vcatpvfn_flags(pTHX_ SV *const sv, const char *const pat, const STRLEN p
                             esignbuf[esignlen++] = plus;
                     }
                     else {
-                        uv = -(UV)iv;
+                        /* Using 0- here to silence bogus warning from MS VC */
+                        uv = (UV) (0 - (UV) iv);
                         esignbuf[esignlen++] = '-';
                     }
                 }
@@ -12669,7 +12671,7 @@ Perl_sv_vcatpvfn_flags(pTHX_ SV *const sv, const char *const pat, const STRLEN p
 #ifdef HAS_PTRDIFF_T
                                   /* will sign extend, but there is no
                                    * uptrdiff_t, so oh well */
-                        case 't': uv = va_arg(*args, ptrdiff_t);     break;
+                        case 't': uv = (UV) va_arg(*args, ptrdiff_t); break;
 #endif
                         case 'j': uv = va_arg(*args, PERL_UINTMAX_T); break;
                         default:  uv = va_arg(*args, unsigned);      break;
