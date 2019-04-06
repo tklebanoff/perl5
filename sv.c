@@ -12671,9 +12671,9 @@ Perl_sv_vcatpvfn_flags(pTHX_ SV *const sv, const char *const pat, const STRLEN p
 #ifdef HAS_PTRDIFF_T
                                   /* will sign extend, but there is no
                                    * uptrdiff_t, so oh well */
-                        case 't': uv = (UV) va_arg(*args, ptrdiff_t); break;
+                        case 't': uv = va_arg(*args, ptrdiff_t); break;
 #endif
-                        case 'j': uv = va_arg(*args, PERL_UINTMAX_T); break;
+                        case 'j': uv = (UV) va_arg(*args, PERL_UINTMAX_T); break;
                         default:  uv = va_arg(*args, unsigned);      break;
                         case 'q':
 #if IVSIZE >= 8
