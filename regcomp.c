@@ -22545,6 +22545,8 @@ Perl_parse_uniprop_string(pTHX_
                                      it is the definition.  Otherwise it is a
                                      string containing the fully qualified sub
                                      name of 'name' */
+    SV * fq_name;               /* For user-defined properties, the fully
+                                   qualified name */
     bool invert_return = FALSE; /* ? Do we need to complement the result before
                                      returning it */
 
@@ -23017,7 +23019,30 @@ Perl_parse_uniprop_string(pTHX_
         CV* user_sub;
 
         /* Here, the name could be for a user defined property, which are
-         * implemented as subs. */
+         * implemented as subs.  If it is user-defined, we will need the fully
+         * qualified name of the input to prevent ambiguities with the same
+         * property in other packages.  If it isn't user-defined, this little
+         * work will have been wasted, but khw put it here rather than having
+         * to put it into a subroutine to be called from two different places
+         * */
+        fq_name = newSVpvs_flags("", SVs_TEMP);
+
+        /* Use the current package if it wasn't included in our input */
+        if (non_pkg_begin == 0) {
+            const HV * pkg = (IN_PERL_COMPILETIME)
+                             ? PL_curstash
+                             : CopSTASH(PL_curcop);
+            const char* pkgname = HvNAME(pkg);
+
+            Perl_sv_catpvf(aTHX_ fq_name, "%" UTF8f,
+                          UTF8fARG(is_utf8, strlen(pkgname), pkgname));
+            sv_catpvs(fq_name, "::");
+        }
+
+        Perl_sv_catpvf(aTHX_ fq_name, "%" UTF8f,
+                             UTF8fARG(is_utf8, name_len, name));
+
+        /* See if there is a sub already defined for this property */
         user_sub = get_cvn_flags(name, name_len, 0);
         if (user_sub) {
 
@@ -23026,10 +23051,9 @@ Perl_parse_uniprop_string(pTHX_
             dSP;
             SV * user_sub_sv = MUTABLE_SV(user_sub);
             SV * error;     /* Any error returned by calling 'user_sub' */
-            SV * fq_name;   /* Fully qualified property name */
+            SV * key;       /* The key into the hash of user defined sub names
+                             */
             SV * placeholder;
-            char to_fold_string[] = "0:";   /* The 0 gets overwritten with the
-                                               actual value */
             SV ** saved_user_prop_ptr;      /* Hash entry for this property */
 
             /* How many times to retry when another thread is in the middle of
@@ -23059,14 +23083,10 @@ Perl_parse_uniprop_string(pTHX_
              * should the need arise, passing the /i status as a parameter.
              *
              * We start by constructing the hash key name, consisting of the
-             * fully qualified subroutine name */
-            fq_name = sv_2mortal(newSV(10));    /* 10 is just a guess */
-            (void) cv_name(user_sub, fq_name, 0);
-
-            /* But precede the sub name in the key with the /i status, so that
-             * there is a key for /i and a different key for non-/i */
-            to_fold_string[0] = to_fold + '0';
-            sv_insert(fq_name, 0, 0, to_fold_string, 2);
+             * fully qualified subroutine name, preceded by the /i status, so
+             * that there is a key for /i and a different key for non-/i */
+            key = newSVpvn(((to_fold) ? "1" : "0"), 1);
+            sv_catsv(key, fq_name);
 
             /* We only call the sub once throughout the life of the program
              * (with the /i, non-/i exception noted above).  That means the
@@ -23116,7 +23136,7 @@ Perl_parse_uniprop_string(pTHX_
             /* If we have an entry for this key, the subroutine has already
              * been called once with this /i status. */
             saved_user_prop_ptr = hv_fetch(PL_user_def_props,
-                                           SvPVX(fq_name), SvCUR(fq_name), 0);
+                                                   SvPVX(key), SvCUR(key), 0);
             if (saved_user_prop_ptr) {
 
                 /* If the saved result is an inversion list, it is the valid
@@ -23191,7 +23211,7 @@ Perl_parse_uniprop_string(pTHX_
              * */
             SWITCH_TO_GLOBAL_CONTEXT;
             placeholder= newSVuv(PTR2IV(ORIGINAL_CONTEXT));
-            (void) hv_store_ent(PL_user_def_props, fq_name, placeholder, 0);
+            (void) hv_store_ent(PL_user_def_props, key, placeholder, 0);
             RESTORE_CONTEXT;
 
             /* Now that we have a placeholder, we can let other threads
@@ -23199,7 +23219,7 @@ Perl_parse_uniprop_string(pTHX_
             USER_PROP_MUTEX_UNLOCK;
 
             /* Make sure the placeholder always gets destroyed */
-            SAVEDESTRUCTOR_X(S_delete_recursion_entry, SvPVX(fq_name));
+            SAVEDESTRUCTOR_X(S_delete_recursion_entry, SvPVX(key));
 
             PUSHMARK(SP);
             SAVETMPS;
@@ -23209,6 +23229,13 @@ Perl_parse_uniprop_string(pTHX_
              * from being within the locked mutex region. */
             XPUSHs(boolSV(to_fold));
             PUTBACK;
+
+            SAVEHINTS();
+            save_re_context();
+            /* We might get here via a subroutine signature which uses a utf8
+             * parameter name, at which point PL_subname will have been set
+             * but not yet used. */
+            save_item(PL_subname);
 
             (void) call_sv(user_sub_sv, G_EVAL|G_SCALAR);
 
@@ -23250,7 +23277,7 @@ Perl_parse_uniprop_string(pTHX_
              * and add the permanent entry */
             USER_PROP_MUTEX_LOCK;
 
-            S_delete_recursion_entry(aTHX_ SvPVX(fq_name));
+            S_delete_recursion_entry(aTHX_ SvPVX(key));
 
             if (! prop_definition || is_invlist(prop_definition)) {
 
@@ -23258,7 +23285,7 @@ Perl_parse_uniprop_string(pTHX_
                  * property; otherwise use the error message */
                 SWITCH_TO_GLOBAL_CONTEXT;
                 (void) hv_store_ent(PL_user_def_props,
-                                    fq_name,
+                                    key,
                                     ((prop_definition)
                                      ? newSVsv(prop_definition)
                                      : newSVsv(msg)),
@@ -23618,28 +23645,12 @@ Perl_parse_uniprop_string(pTHX_
   definition_deferred:
 
     /* Here it could yet to be defined, so defer evaluation of this
-     * until its needed at runtime. */
-    prop_definition = newSVpvs_flags("", SVs_TEMP);
-
-    /* To avoid any ambiguity, the package is always specified.
-     * Use the current one if it wasn't included in our input */
-    if (non_pkg_begin == 0) {
-        const HV * pkg = (IN_PERL_COMPILETIME)
-                         ? PL_curstash
-                         : CopSTASH(PL_curcop);
-        const char* pkgname = HvNAME(pkg);
-
-        Perl_sv_catpvf(aTHX_ prop_definition, "%" UTF8f,
-                      UTF8fARG(is_utf8, strlen(pkgname), pkgname));
-        sv_catpvs(prop_definition, "::");
-    }
-
-    Perl_sv_catpvf(aTHX_ prop_definition, "%" UTF8f,
-                         UTF8fARG(is_utf8, name_len, name));
-    sv_catpvs(prop_definition, "\n");
+     * until its needed at runtime.  We shouldn't have gotten here unless we
+     * populated fq_name.  Simply add a newline to it */
+    sv_catpvs(fq_name, "\n");
 
     *user_defined_ptr = TRUE;
-    return prop_definition;
+    return fq_name;
 }
 
 #endif
